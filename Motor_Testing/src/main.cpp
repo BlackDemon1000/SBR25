@@ -1,98 +1,98 @@
-#include <Arduino.h>
 #include <DynamixelShield.h>
 
 #if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_MEGA2560)
-#include <SoftwareSerial.h>
-SoftwareSerial soft_serial(7, 8); 
-#define DEBUG_SERIAL soft_serial
+  #include <SoftwareSerial.h>
+  SoftwareSerial soft_serial(7, 8); // DYNAMIXELShield UART RX/TX
+  #define DEBUG_SERIAL soft_serial
 #elif defined(ARDUINO_SAM_DUE) || defined(ARDUINO_SAM_ZERO)
-#define DEBUG_SERIAL SerialUSB
+  #define DEBUG_SERIAL SerialUSB    
 #else
-#define DEBUG_SERIAL Serial
+  #define DEBUG_SERIAL Serial
 #endif
 
-const uint8_t DXL_ID_1 = 1;
-const uint8_t DXL_ID_2 = 2;
-const float DXL_PROTOCOL_VERSION = 1.0;
+const uint8_t DXL_ID = 1;
+const float DXL_PROTOCOL_VERSION = 2.0;
 
 DynamixelShield dxl;
+
+//This namespace is required to use Control table item names
 using namespace ControlTableItem;
 
 void setup() {
-  // Initialize serial communication
+  // put your setup code here, to run once:
+  
+  // For Uno, Nano, Mini, and Mega, use UART port of DYNAMIXEL Shield to debug.
   DEBUG_SERIAL.begin(115200);
-  DEBUG_SERIAL.println("Dynamixel Shield Initializing...");
-
-  // Initialize Dynamixel Shield
-  dxl.begin(1000000);
+  
+  // Set Port baudrate to 57600bps. This has to match with DYNAMIXEL baudrate.
+  dxl.begin(57600);
+  // Set Port Protocol Version. This has to match with DYNAMIXEL protocol version.
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
-
-  // Ping and check motors
-  DEBUG_SERIAL.println("Pinging Dynamixel Motors...");
-  if(dxl.ping(DXL_ID_1) == true) {
-    DEBUG_SERIAL.print("Motor 1 (ID: ");
-    DEBUG_SERIAL.print(DXL_ID_1);
-    DEBUG_SERIAL.println(") connected successfully.");
-  } else {
-    DEBUG_SERIAL.print("Failed to connect to Motor 1 (ID: ");
-    DEBUG_SERIAL.print(DXL_ID_1);
-    DEBUG_SERIAL.println(")");
-  }
-
-  if(dxl.ping(DXL_ID_2) == true) {
-    DEBUG_SERIAL.print("Motor 2 (ID: ");
-    DEBUG_SERIAL.print(DXL_ID_2);
-    DEBUG_SERIAL.println(") connected successfully.");
-  } else {
-    DEBUG_SERIAL.print("Failed to connect to Motor 2 (ID: ");
-    DEBUG_SERIAL.print(DXL_ID_2);
-    DEBUG_SERIAL.println(")");
-  }
-
-  // Configure motors
-  DEBUG_SERIAL.println("Configuring Motors...");
-  dxl.torqueOff(DXL_ID_1);
-  dxl.torqueOff(DXL_ID_2);
-
-  dxl.setOperatingMode(DXL_ID_1, OP_VELOCITY);
-  dxl.setOperatingMode(DXL_ID_2, OP_VELOCITY);
-
-  dxl.torqueOn(DXL_ID_1);
-  dxl.torqueOn(DXL_ID_2);
-
-  DEBUG_SERIAL.println("Motor Configuration Complete.");
+  // Get DYNAMIXEL information
+  dxl.ping(DXL_ID);
 }
 
 void loop() {
-  DEBUG_SERIAL.println("Setting First Velocity Sequence...");
+  // put your main code here, to run repeatedly:
   
-  // First velocity sequence
-  dxl.setGoalVelocity(DXL_ID_1, 1.2, UNIT_PERCENT);
-  dxl.setGoalVelocity(DXL_ID_2, 1.1, UNIT_PERCENT);
+  // Position Control Mode in protocol2.0, Joint Mode in protocol1.0
+  // Turn off torque when configuring items in EEPROM area
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_POSITION);
+  dxl.torqueOn(DXL_ID);
+  if(dxl.setGoalPosition(DXL_ID, 512)){
+    delay(1000);
+    DEBUG_SERIAL.print("Present Position : ");
+    DEBUG_SERIAL.println(dxl.getPresentPosition(DXL_ID)); DEBUG_SERIAL.println();
+  }
 
-  DEBUG_SERIAL.print("Motor 1 Velocity: ");
-  DEBUG_SERIAL.print(dxl.getPresentVelocity(DXL_ID_1, UNIT_PERCENT));
-  DEBUG_SERIAL.println(" %");
+  // Velocity Contorl Mode in protocol2.0, Speed Mode in protocol1.0
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_VELOCITY);
+  dxl.torqueOn(DXL_ID);
+  if(dxl.setGoalVelocity(DXL_ID, 128)){
+    delay(1000);
+    DEBUG_SERIAL.print("Present Velocity : ");
+    DEBUG_SERIAL.println(dxl.getPresentVelocity(DXL_ID)); DEBUG_SERIAL.println();
+  }
 
-  DEBUG_SERIAL.print("Motor 2 Velocity: ");
-  DEBUG_SERIAL.print(dxl.getPresentVelocity(DXL_ID_2, UNIT_PERCENT));
-  DEBUG_SERIAL.println(" %");
+  // Extended Position Contorl Mode in protocol2.0, Multi-turn Mode(only MX series) in protocol1.0
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_EXTENDED_POSITION);
+  dxl.torqueOn(DXL_ID);
+  if(dxl.setGoalPosition(DXL_ID, 4096)){
+    delay(1000);
+    DEBUG_SERIAL.print("Present Extended Position : ");
+    DEBUG_SERIAL.println(dxl.getPresentPosition(DXL_ID)); DEBUG_SERIAL.println();
+  }
 
-  delay(1000);
-
-  DEBUG_SERIAL.println("Setting Second Velocity Sequence...");
+  // PWM Contorl Mode in protocol2.0
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_PWM);
+  dxl.torqueOn(DXL_ID);
+  if(dxl.setGoalPWM(DXL_ID, 200)){
+    delay(1000);
+    DEBUG_SERIAL.print("Present PWM : ");
+    DEBUG_SERIAL.println(dxl.getPresentPWM(DXL_ID)); DEBUG_SERIAL.println();
+  }
   
-  // Second velocity sequence
-  dxl.setGoalVelocity(DXL_ID_1, -80.2, UNIT_PERCENT);
-  dxl.setGoalVelocity(DXL_ID_2, 20.2, UNIT_PERCENT);
-
-  DEBUG_SERIAL.print("Motor 1 Velocity: ");
-  DEBUG_SERIAL.print(dxl.getPresentVelocity(DXL_ID_1, UNIT_PERCENT));
-  DEBUG_SERIAL.println(" %");
-
-  DEBUG_SERIAL.print("Motor 2 Velocity: ");
-  DEBUG_SERIAL.print(dxl.getPresentVelocity(DXL_ID_2, UNIT_PERCENT));
-  DEBUG_SERIAL.println(" %");
-
-  delay(1000);
+  // Current Contorl Mode in protocol2.0, Torque Mode(only MX64,MX106) in protocol1.0
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_CURRENT);
+  dxl.torqueOn(DXL_ID);
+  if(dxl.setGoalCurrent(DXL_ID, 256)){
+    delay(1000);
+    DEBUG_SERIAL.print("Present Current : ");
+    DEBUG_SERIAL.println(dxl.getPresentCurrent(DXL_ID)); DEBUG_SERIAL.println();
+  }
+  
+  // Current Based Postion Contorl Mode in protocol2.0 (except MX28, XL430)
+  dxl.torqueOff(DXL_ID);
+  dxl.setOperatingMode(DXL_ID, OP_CURRENT_BASED_POSITION);
+  dxl.torqueOn(DXL_ID);
+  if(dxl.setGoalPosition(DXL_ID, 8192)){
+    delay(1000);
+    DEBUG_SERIAL.print("Present Current Based Position : ");
+    DEBUG_SERIAL.println(dxl.getPresentPosition(DXL_ID)); DEBUG_SERIAL.println();
+  }
 }
